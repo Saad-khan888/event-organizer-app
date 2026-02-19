@@ -61,6 +61,39 @@ CREATE TABLE IF NOT EXISTS events (
   status TEXT DEFAULT 'upcoming' CHECK (status IN ('upcoming', 'ongoing', 'completed', 'cancelled'))
 );
 
+-- Fix participants column type if it's uuid[] instead of JSONB
+DO $$
+BEGIN
+  -- Check if participants is uuid[] and convert to JSONB
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name='events' 
+    AND column_name='participants' 
+    AND data_type='ARRAY'
+  ) THEN
+    -- Drop the trigger first to avoid conflicts
+    DROP TRIGGER IF EXISTS trg_sync_ticket_participant ON tickets;
+    
+    -- Drop the default first
+    ALTER TABLE events ALTER COLUMN participants DROP DEFAULT;
+    
+    -- Convert uuid[] to JSONB
+    ALTER TABLE events 
+    ALTER COLUMN participants TYPE JSONB 
+    USING to_jsonb(participants);
+    
+    -- Set new default
+    ALTER TABLE events 
+    ALTER COLUMN participants SET DEFAULT '[]'::jsonb;
+    
+    -- Recreate the trigger
+    CREATE TRIGGER trg_sync_ticket_participant
+    AFTER INSERT ON tickets
+    FOR EACH ROW
+    EXECUTE FUNCTION sync_ticket_participant();
+  END IF;
+END $$;
+
 -- Ensure prize columns exist for already-created databases
 DO $$
 BEGIN
@@ -235,6 +268,17 @@ CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users FOR EACH ROW EXECU
 -- 4. RPC FUNCTIONS
 -- =====================================================
 
+-- Drop all existing versions of functions to avoid conflicts
+DROP FUNCTION IF EXISTS create_ticket_order(UUID, UUID, UUID, INTEGER, UUID);
+DROP FUNCTION IF EXISTS create_ticket_order(p_event_id UUID, p_ticket_type_id UUID, p_user_id UUID, p_quantity INTEGER, p_payment_method_id UUID);
+DROP FUNCTION IF EXISTS create_ticket_order(p_user_id UUID, p_event_id UUID, p_ticket_type_id UUID, p_payment_method_id UUID, p_quantity INTEGER);
+DROP FUNCTION IF EXISTS approve_payment(UUID);
+DROP FUNCTION IF EXISTS approve_payment(p_order_id UUID);
+DROP FUNCTION IF EXISTS reject_payment(UUID, TEXT);
+DROP FUNCTION IF EXISTS reject_payment(p_order_id UUID, p_reason TEXT);
+DROP FUNCTION IF EXISTS validate_scan_ticket(TEXT, UUID, UUID);
+DROP FUNCTION IF EXISTS validate_scan_ticket(p_qr_code TEXT, p_event_id UUID, p_scanned_by UUID);
+
 CREATE OR REPLACE FUNCTION create_ticket_order(
   p_event_id UUID,
   p_ticket_type_id UUID,
@@ -372,7 +416,10 @@ ALTER TABLE ticket_validations ENABLE ROW LEVEL SECURITY;
 
 -- DROP ALL EXISTNG POLICIES (Cleanup Phase)
 DROP POLICY IF EXISTS "Public view" ON users;
+DROP POLICY IF EXISTS "Self insert" ON users;
+DROP POLICY IF EXISTS "Authenticated insert own profile" ON users;
 DROP POLICY IF EXISTS "Self update" ON users;
+DROP POLICY IF EXISTS "Self delete" ON users;
 
 DROP POLICY IF EXISTS "Public view events" ON events;
 DROP POLICY IF EXISTS "Organizer create events" ON events;
@@ -399,7 +446,9 @@ DROP POLICY IF EXISTS "Public view" ON orders;         -- cleaning up common def
 DROP POLICY IF EXISTS "Authenticated view" ON orders;  -- cleaning up common defaults
 
 DROP POLICY IF EXISTS "User view own tickets" ON tickets;
+DROP POLICY IF EXISTS "User insert own tickets" ON tickets;
 DROP POLICY IF EXISTS "Organizer view event tickets" ON tickets;
+DROP POLICY IF EXISTS "Organizer insert event tickets" ON tickets;
 DROP POLICY IF EXISTS "Public view" ON tickets;
 DROP POLICY IF EXISTS "Authenticated view" ON tickets;
 
@@ -408,7 +457,11 @@ DROP POLICY IF EXISTS "Authenticated view" ON tickets;
 
 -- Users
 CREATE POLICY "Public view" ON users FOR SELECT USING (true);
+CREATE POLICY "Authenticated insert own profile" ON users FOR INSERT WITH CHECK (
+  auth.uid() = id
+);
 CREATE POLICY "Self update" ON users FOR UPDATE USING (auth.uid() = id);
+CREATE POLICY "Self delete" ON users FOR DELETE USING (auth.uid() = id);
 
 -- Events
 CREATE POLICY "Public view events" ON events FOR SELECT USING (true);
@@ -447,7 +500,11 @@ CREATE POLICY "Organizer update event orders" ON orders FOR UPDATE USING (
 
 -- Tickets
 CREATE POLICY "User view own tickets" ON tickets FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "User insert own tickets" ON tickets FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Organizer view event tickets" ON tickets FOR SELECT USING (
+  EXISTS (SELECT 1 FROM events WHERE events.id = tickets.event_id AND (events.organizer = auth.uid() OR events."organizerId" = auth.uid()))
+);
+CREATE POLICY "Organizer insert event tickets" ON tickets FOR INSERT WITH CHECK (
   EXISTS (SELECT 1 FROM events WHERE events.id = tickets.event_id AND (events.organizer = auth.uid() OR events."organizerId" = auth.uid()))
 );
 
@@ -657,6 +714,40 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Function to allow athletes to join events directly
+CREATE OR REPLACE FUNCTION join_event_direct(p_event_id UUID, p_user_id UUID) 
+RETURNS JSONB 
+LANGUAGE plpgsql
+SECURITY DEFINER -- Run with elevated privileges to bypass RLS
+AS $$
+DECLARE
+  v_event RECORD;
+  v_current_participants JSONB;
+BEGIN
+  -- Get the event
+  SELECT * INTO v_event FROM events WHERE id = p_event_id;
+  
+  IF v_event IS NULL THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Event not found');
+  END IF;
+  
+  -- Get current participants (JSONB array)
+  v_current_participants := COALESCE(v_event.participants, '[]'::jsonb);
+  
+  -- Check if user is already a participant
+  IF v_current_participants @> to_jsonb(p_user_id) THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Already joined this event');
+  END IF;
+  
+  -- Add user to participants
+  UPDATE events 
+  SET participants = v_current_participants || to_jsonb(p_user_id)
+  WHERE id = p_event_id
+  RETURNING * INTO v_event;
+  
+  RETURN jsonb_build_object('success', true, 'data', row_to_json(v_event));
+END;
+$$;
 
 
 -- Reload Cache

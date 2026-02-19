@@ -22,7 +22,7 @@ export default function EventDetails() {
     const { user } = useAuth(); // Current logged-in user
 
     // 2. STATE (Local to this event)
-    const event = events.find(e => e.id === id); // Find the specific event object
+    const event = events.find(e => String(e.id) === String(id)); // Find the specific event object using string comparison
     const [showTicketPurchase, setShowTicketPurchase] = useState(false);
     const { getEventTicketTypes, loading: ticketingLoading, hasJoinedEvent, getEventParticipationStatus } = useTicketing();
 
@@ -30,7 +30,9 @@ export default function EventDetails() {
     const hasTickets = !ticketingLoading && event ? getEventTicketTypes(event.id).length > 0 : false;
 
     const organizer = event ? users.find(u => u.id === event.organizer) : null;
-    const participantsList = event?.participants && event.participants.length > 0
+    
+    // Handle participants - ensure it's an array
+    const participantsList = event?.participants && Array.isArray(event.participants) && event.participants.length > 0
         ? users.filter(u => event.participants.includes(u.id))
         : [];
 
@@ -46,7 +48,9 @@ export default function EventDetails() {
 
     // 4. ELIGIBILITY LOGIC
     const isAthlete = user?.role === 'athlete';
-    const isAthleteJoined = isAthlete && event.participants?.includes(user?.id);
+    // Check if user ID is in participants array (handle both string and UUID)
+    const isAthleteJoined = isAthlete && event.participants && Array.isArray(event.participants) && 
+        event.participants.some(p => String(p) === String(user?.id));
 
     const participationStatus = user && getEventParticipationStatus
         ? getEventParticipationStatus(event.id).status
