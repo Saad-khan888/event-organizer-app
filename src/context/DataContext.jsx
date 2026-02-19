@@ -170,24 +170,48 @@ export const DataProvider = ({ children }) => {
   // This now uses a secure RPC function to bypass RLS restrictions for Athletes.
   const joinEvent = async (eventId, userId) => {
     try {
+      console.log('🎯 Attempting to join event:', eventId, 'for user:', userId);
+      
       // Call the RPC function created via SQL
       const { data, error } = await supabase.rpc('join_event_direct', {
         p_event_id: eventId,
         p_user_id: userId
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ RPC error:', error);
+        throw error;
+      }
+
+      console.log('📦 RPC response:', data);
 
       if (data.success) {
         // Update local state with the returned event data
         const updatedEvent = data.data;
-        setEvents((prev) => prev.map((e) => (e.id === eventId ? updatedEvent : e)));
+        console.log('✅ Event joined successfully:', updatedEvent);
+        console.log('📋 Current events before update:', events.length);
+        
+        // Update the events array with the new event data
+        setEvents((prev) => {
+          const newEvents = prev.map((e) => {
+            // Use string comparison to ensure match
+            if (String(e.id) === String(eventId)) {
+              console.log('🔄 Replacing event:', e.id, 'with updated data');
+              return updatedEvent;
+            }
+            return e;
+          });
+          console.log('📋 Events after update:', newEvents.length);
+          return newEvents;
+        });
+        
         return { success: true, data: updatedEvent };
       } else {
+        console.error('❌ Join failed:', data.error);
         return { success: false, error: data.error };
       }
     } catch (err) {
-      console.error('Failed to join event:', err);
+      console.error('❌ Failed to join event:', err);
       return { success: false, error: err.message };
     }
   };

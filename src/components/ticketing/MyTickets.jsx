@@ -56,6 +56,12 @@ export default function MyTickets() {
         o.user_id === user.id
     );
 
+    // NEW: Filter for rejected orders
+    const rejectedOrders = orders.filter(o =>
+        o.status === 'rejected' &&
+        o.user_id === user.id
+    );
+
     const handleUploadClick = (order) => {
         setUploadingOrder(order);
         setProofFile(null);
@@ -145,6 +151,63 @@ export default function MyTickets() {
                                             Upload Payment Proof
                                         </button>
                                     )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* NEW SECTION: Rejected Orders */}
+            {rejectedOrders.length > 0 && (
+                <div style={{ marginBottom: '3rem' }}>
+                    <h3 style={{ marginBottom: '1rem', color: 'var(--danger)' }}>
+                        Rejected Payments ({rejectedOrders.length})
+                    </h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(350px, 100%), 1fr))', gap: '1.5rem' }}>
+                        {rejectedOrders.map(order => (
+                            <div key={order.id} className="card glass-panel" style={{ padding: '1.5rem', border: '1px solid var(--danger)', minWidth: 0 }}>
+                                <div style={{ marginBottom: '1rem' }}>
+                                    <h4 style={{ color: 'var(--danger)', fontSize: '1.2rem', marginBottom: '0.5rem', wordBreak: 'break-word' }}>
+                                        {order.event?.title || 'Event'}
+                                    </h4>
+                                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                        <span className="badge badge-outline" style={{ wordBreak: 'break-word' }}>{order.ticket_type?.name}</span>
+                                        <span className="badge" style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+                                            Rejected
+                                        </span>
+                                    </div>
+                                </div>
+                                <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                                    <p>Quantity: {order.quantity}</p>
+                                    <p>Total: PKR {order.total_amount}</p>
+                                    
+                                    {order.rejection_reason && (
+                                        <div style={{
+                                            marginTop: '1rem',
+                                            padding: '0.75rem',
+                                            background: 'rgba(239, 68, 68, 0.1)',
+                                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                                            borderRadius: '6px',
+                                            color: 'var(--text-primary)'
+                                        }}>
+                                            <strong style={{ color: 'var(--danger)' }}>Rejection Reason:</strong>
+                                            <p style={{ marginTop: '0.5rem', wordBreak: 'break-word' }}>{order.rejection_reason}</p>
+                                        </div>
+                                    )}
+
+                                    <p style={{ marginTop: '1rem', fontStyle: 'italic', fontSize: '0.85rem' }}>
+                                        Your payment proof was rejected by the organizer. Please contact them for clarification or submit a new payment.
+                                    </p>
+
+                                    <button
+                                        onClick={() => handleUploadClick(order)}
+                                        className="btn btn-primary btn-sm btn-full-mobile"
+                                        style={{ marginTop: '1rem', width: '100%' }}
+                                    >
+                                        <Upload size={16} style={{ marginRight: '0.5rem' }} />
+                                        Resubmit Payment Proof
+                                    </button>
                                 </div>
                             </div>
                         ))}

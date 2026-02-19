@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 
 // -----------------------------------------------------------------------------
@@ -28,6 +28,9 @@ export const AuthProvider = ({ children }) => {
     // While true, we usually show a spinner so the user doesn't see a "flash" of the login screen.
     const [loading, setLoading] = useState(true);
 
+    // REF: Track last fetched user ID to prevent duplicate fetches
+    const lastUserIdRef = useRef(null);
+
     // EFFECT: Runs once when the app starts.
     useEffect(() => {
         let authSubscription = null;
@@ -41,7 +44,7 @@ export const AuthProvider = ({ children }) => {
                     .from('users')
                     .select('*')
                     .eq('id', userId)
-                    .single();
+                    .maybeSingle(); // Use maybeSingle instead of single to avoid errors if not found
 
                 if (error) {
                     // Ignore abort errors as they usually mean a newer request is already in flight
@@ -49,8 +52,15 @@ export const AuthProvider = ({ children }) => {
                         console.warn('⚠️ Profile fetch aborted (expected during rapid state changes)');
                         return null;
                     }
-                    throw error;
+                    console.error('❌ Profile fetch error:', error);
+                    return null;
                 }
+                
+                if (!data) {
+                    console.warn('⚠️ No profile found for user:', userId);
+                    return null;
+                }
+                
                 return data;
             } catch (err) {
                 console.error('❌ Profile fetch failed:', err);
@@ -68,7 +78,15 @@ export const AuthProvider = ({ children }) => {
 
                 if (session?.user) {
                     const profile = await loadProfile(session.user.id);
-                    if (profile) setUser(profile);
+                    
+                    if (profile) {
+                        setUser(profile);
+                    } else {
+                        // Profile not found - auth account exists but profile was deleted
+                        console.error('❌ Auth account exists but profile is missing. Logging out...');
+                        await supabase.auth.signOut();
+                        alert('Your account profile was not found. Please contact support or sign up again with a different email.');
+                    }
                 }
             } catch (error) {
                 console.error('❌ Auth initialization failed:', error);
@@ -84,11 +102,23 @@ export const AuthProvider = ({ children }) => {
                     console.log('🔄 Auth Event:', event);
 
                     if (session?.user) {
-                        // Fetch/Refresh profile whenever auth state changes
-                        // We remove the !user check to avoid stale closure issues
-                        const profile = await loadProfile(session.user.id);
-                        if (profile) setUser(profile);
+                        // Only fetch profile if user ID changed (avoid duplicate fetches)
+                        if (lastUserIdRef.current !== session.user.id) {
+                            lastUserIdRef.current = session.user.id;
+                            const profile = await loadProfile(session.user.id);
+                            
+                            if (profile) {
+                                setUser(profile);
+                            } else {
+                                // Profile not found - auth account exists but profile was deleted
+                                console.error('❌ Auth account exists but profile is missing. Logging out...');
+                                await supabase.auth.signOut();
+                                setUser(null);
+                                alert('Your account profile was not found. Please contact support or sign up again with a different email.');
+                            }
+                        }
                     } else {
+                        lastUserIdRef.current = null;
                         setUser(null);
                     }
 
@@ -178,8 +208,20 @@ export const AuthProvider = ({ children }) => {
 
             if (profileError) throw profileError;
 
-            // 4. Auto-login after signup
-            await login(email, password);
+            // 4. Fetch the profile we just created and set it in state
+            // Supabase already logged the user in after signUp, so we just need to load the profile
+            const { data: profile, error: fetchError } = await supabase
+                .from('users')
+                .select('*')
+                .eq('id', authData.user.id)
+                .single();
+
+            if (fetchError) {
+                console.error('Failed to fetch profile after signup:', fetchError);
+                // Don't throw - the auth state listener will pick it up
+            } else {
+                setUser(profile);
+            }
 
             return { success: true };
         } catch (error) {

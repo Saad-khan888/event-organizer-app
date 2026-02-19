@@ -41,18 +41,27 @@ export default function Login() {
     // Handle Login Submission
     const handleSubmit = async (e) => {
         e.preventDefault(); // Stop page reload
+        
+        // Prevent multiple submissions
+        if (loading) return;
+        
         setError('');
         setLoading(true);
 
-        // Call the login function from AuthContext
-        const result = await login(formData.email, formData.password);
+        try {
+            // Call the login function from AuthContext
+            const result = await login(formData.email, formData.password);
 
-        if (result.success) {
-            // If successful, go to Dashboard
-            navigate('/dashboard');
-        } else {
-            // If failed, show error message
-            setError(result.error || 'Invalid email or password');
+            if (result.success) {
+                // Don't navigate here - let the useEffect handle it
+                // The auth state listener will update the user and trigger the redirect
+            } else {
+                // If failed, show error message
+                setError(result.error || 'Invalid email or password');
+                setLoading(false);
+            }
+        } catch (err) {
+            setError('An unexpected error occurred');
             setLoading(false);
         }
     };

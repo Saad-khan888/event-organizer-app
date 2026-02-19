@@ -59,7 +59,7 @@ export default function PaymentSubmission({ order, onClose, onSubmitted }) {
 
     return (
         <div style={{ padding: '2rem', maxWidth: '700px', margin: '0 auto' }}>
-            <h2 style={{ color: "var(--text-primary)",  fontSize: '1.8rem', marginBottom: '0.5rem' }}>
+            <h2 style={{ color: "var(--text-primary)", fontSize: '1.8rem', marginBottom: '0.5rem' }}>
                 💳 Submit Payment Proof
             </h2>
             <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>

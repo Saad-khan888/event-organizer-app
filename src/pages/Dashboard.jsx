@@ -15,6 +15,7 @@ import ViewerDashboard from '../components/dashboards/ViewerDashboard';
 
 export default function Dashboard() {
     const { user } = useAuth();
+    const [reporterView, setReporterView] = React.useState('news'); // 'news' or 'events'
 
     // SECURITY CHECK
     // If no user is logged in, kick them back to the Home page.
@@ -28,7 +29,25 @@ export default function Dashboard() {
         <div style={{ paddingBottom: '2rem' }}>
             {user.role === 'organizer' && <OrganizerDashboard />}
             {user.role === 'athlete' && <AthleteDashboard />}
-            {user.role === 'reporter' && <ReporterDashboard />}
+            {user.role === 'reporter' && (
+                <>
+                    <div className="container" style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem', gap: '8px' }}>
+                        <button 
+                            className={`btn ${reporterView === 'news' ? 'btn-primary' : 'btn-outline'}`}
+                            onClick={() => setReporterView('news')}
+                        >
+                            News Desk
+                        </button>
+                        <button 
+                            className={`btn ${reporterView === 'events' ? 'btn-primary' : 'btn-outline'}`}
+                            onClick={() => setReporterView('events')}
+                        >
+                            Organizer View
+                        </button>
+                    </div>
+                    {reporterView === 'news' ? <ReporterDashboard /> : <OrganizerDashboard />}
+                </>
+            )}
             {user.role === 'viewer' && <ViewerDashboard />}
         </div>
     );
