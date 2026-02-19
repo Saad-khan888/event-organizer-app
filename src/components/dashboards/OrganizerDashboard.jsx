@@ -27,6 +27,7 @@ export default function OrganizerDashboard() {
     const [editingId, setEditingId] = useState(null); // Tracks if we are "Updating" or "Creating New"
     const [showTicketConfig, setShowTicketConfig] = useState(null); // Event ID to configure tickets for
     const [showPaymentSetup, setShowPaymentSetup] = useState(null); // Event ID to configure payments for
+    const [isSubmitting, setIsSubmitting] = useState(false); // Global saving indicator
 
     // 2. FORM STATE
     const [formData, setFormData] = useState({ title: '', date: '', time: '', location: '', description: '', category: 'Boxing', prize_first: '', prize_second: '', prize_third: '' });
@@ -92,20 +93,29 @@ export default function OrganizerDashboard() {
     };
 
     // Main Submit (Save to Database)
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
 
-        if (editingId) {
-            // SCENARIO: EDITING
-            updateEvent(editingId, { ...formData });
-            alert("Event updated successfully!");
-        } else {
-            // SCENARIO: BRAND NEW
-            addEvent({ ...formData, organizer: user.id, organizerId: user.id });
-            alert("Event created successfully!");
-        }
+        if (isSubmitting) return;
+        setIsSubmitting(true);
 
-        resetForm(); // Clean up
+        try {
+            if (editingId) {
+                // SCENARIO: EDITING
+                await updateEvent(editingId, { ...formData });
+                alert("Event updated successfully!");
+            } else {
+                // SCENARIO: BRAND NEW
+                await addEvent({ ...formData, organizer: user.id, organizerId: user.id });
+                alert("Event created successfully!");
+            }
+            resetForm(); // Clean up ONLY on success
+        } catch (err) {
+            console.error('Submit error:', err);
+            alert("Failed to save event: " + (err.message || "Unknown error"));
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const handleDelete = (id) => {
@@ -257,8 +267,14 @@ export default function OrganizerDashboard() {
                                 </div>
                                 <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
                                     <button type="button" className="btn btn-outline" onClick={resetForm}>Cancel</button>
-                                    <button type="submit" className="btn btn-primary">
-                                        {editingId ? <><Check size={18} /> Update Event</> : <><Plus size={18} /> Publish Event</>}
+                                    <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
+                                        {isSubmitting ? (
+                                            <>Saving...</>
+                                        ) : editingId ? (
+                                            <><Check size={18} /> Update Event</>
+                                        ) : (
+                                            <><Plus size={18} /> Publish Event</>
+                                        )}
                                     </button>
                                 </div>
                             </form>
