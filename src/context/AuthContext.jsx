@@ -32,136 +32,96 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         let authSubscription = null;
 
-        // A. Check for existing session (CRITICAL: Must complete before Realtime subscriptions)
-        const initializeAuth = async () => {
+        // HELPER: Fetch profile by ID
+        // Centralized to avoid duplicate code and race conditions
+        const loadProfile = async (userId) => {
             try {
-                console.log('🔐 Initializing auth session...');
-                
-                // Get the current session from Supabase
-                const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+                console.log('👤 Fetching profile for:', userId);
+                const { data, error } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('id', userId)
+                    .single();
 
-                if (sessionError) {
-                    console.error('❌ Session error:', sessionError);
-                    throw sessionError;
-                }
-
-                if (session?.user) {
-                    console.log('✅ Session found for user:', session.user.id);
-                    
-                    // Fetch the full user profile from our users table
-                    const { data: profile, error: profileError } = await supabase
-                        .from('users')
-                        .select('*')
-                        .eq('id', session.user.id)
-                        .single();
-
-                    if (profileError) {
-                        console.error('❌ Profile fetch error:', profileError);
-                    } else {
-                        console.log('✅ Profile loaded:', profile.email);
-                        setUser(profile);
+                if (error) {
+                    // Ignore abort errors as they usually mean a newer request is already in flight
+                    if (error.message?.includes('AbortError')) {
+                        console.warn('⚠️ Profile fetch aborted (expected during rapid state changes)');
+                        return null;
                     }
-                } else {
-                    console.log('ℹ️ No active session found');
+                    throw error;
                 }
-            } catch (error) {
-                console.error('❌ Error initializing auth:', error);
-            } finally {
-                // CRITICAL: Set loading to false AFTER session restoration completes
-                // This ensures UI doesn't freeze and other contexts can proceed
-                setLoading(false);
-                console.log('✅ Auth initialization complete');
+                return data;
+            } catch (err) {
+                console.error('❌ Profile fetch failed:', err);
+                return null;
             }
         };
 
-        // B. Listen for auth changes (login/logout in other tabs, token expiry)
+        // A. Check for existing session
+        const initializeAuth = async () => {
+            try {
+                setLoading(true);
+                const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+                if (sessionError) throw sessionError;
+
+                if (session?.user) {
+                    const profile = await loadProfile(session.user.id);
+                    if (profile) setUser(profile);
+                }
+            } catch (error) {
+                console.error('❌ Auth initialization failed:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        // B. Listen for auth changes
         const setupAuthListener = () => {
             const { data: { subscription } } = supabase.auth.onAuthStateChange(
                 async (event, session) => {
-                    console.log('🔄 Auth state changed:', event);
-                    
-                    if (session?.user) {
-                        // User logged in - fetch their profile
-                        const { data: profile } = await supabase
-                            .from('users')
-                            .select('*')
-                            .eq('id', session.user.id)
-                            .single();
+                    console.log('🔄 Auth Event:', event);
 
-                        setUser(profile);
+                    if (session?.user) {
+                        // Fetch/Refresh profile whenever auth state changes
+                        // We remove the !user check to avoid stale closure issues
+                        const profile = await loadProfile(session.user.id);
+                        if (profile) setUser(profile);
                     } else {
-                        // User logged out
                         setUser(null);
                     }
+
+                    setLoading(false);
                 }
             );
-
             authSubscription = subscription;
         };
 
-        // Initialize auth first, then set up listener
-        initializeAuth().then(() => {
-            setupAuthListener();
-        });
+        initializeAuth().then(() => setupAuthListener());
 
-        // Cleanup: Stop listening when component unmounts
         return () => {
-            if (authSubscription) {
-                authSubscription.unsubscribe();
-            }
+            if (authSubscription) authSubscription.unsubscribe();
         };
-    }, []);
+    }, []); // Empty dependency array is correct for singleton listener
 
     // FUNCTION: Log In
-    // Takes email/password, sends them to Supabase.
     const login = async (email, password) => {
         try {
-            console.log('🔐 Attempting login for:', email);
+            console.log('🔑 Login attempt:', email);
+            setLoading(true); // Show spinner while logging in
+            const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
-            // Sign in with Supabase Auth
-            const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-                email,
-                password
-            });
+            if (error) throw error;
 
-            if (authError) {
-                console.error('❌ Auth error:', authError);
-                throw authError;
-            }
-
-            console.log('✅ Auth successful, user ID:', authData.user.id);
-
-            // Fetch the user profile from our users table
-            const { data: profile, error: profileError } = await supabase
-                .from('users')
-                .select('*')
-                .eq('id', authData.user.id)
-                .single();
-
-            if (profileError) {
-                console.error('❌ Profile fetch error:', profileError);
-                throw profileError;
-            }
-
-            if (!profile) {
-                console.error('❌ No profile found for user:', authData.user.id);
-                throw new Error('User profile not found. Please complete signup.');
-            }
-
-            console.log('✅ Profile loaded:', profile.email, 'Role:', profile.role);
-            setUser(profile);
+            // Note: onAuthStateChange will take over from here to set the user profile.
+            // We just return success. If the redirect happens too fast, 
+            // ProtectedRoute will show its own loading spinner.
             return { success: true };
         } catch (error) {
-            console.error('❌ Login failed:', error);
-            let msg = 'Login failed. Please check your credentials.';
-            if (error.message.includes('Invalid login credentials')) {
-                msg = 'Invalid email or password.';
-            } else if (error.message.includes('Email not confirmed')) {
-                msg = 'Please confirm your email address before logging in.';
-            } else if (error.message.includes('User profile not found')) {
-                msg = error.message;
-            }
-            return { success: false, error: msg };
+            console.error('❌ Login error:', error);
+            setLoading(false);
+            return { success: false, error: error.message };
         }
     };
 
@@ -197,7 +157,7 @@ export const AuthProvider = ({ children }) => {
                         console.error('Avatar upload error:', uploadError);
                         throw new Error(`Avatar upload failed: ${uploadError.message}. Please check if 'avatars' storage bucket exists and is public.`);
                     }
-                    
+
                     avatarPath = uploadData.path;
                 } catch (uploadErr) {
                     console.error('Avatar upload failed:', uploadErr);
@@ -233,11 +193,17 @@ export const AuthProvider = ({ children }) => {
     };
 
     // FUNCTION: Log Out
-    // Wipes the session from memory and storage, then reloads the page.
+    // Wipes the session from memory and storage.
     const logout = async () => {
-        await supabase.auth.signOut();
-        setUser(null);
-        window.location.href = '/'; // Force page reload to ensure all states are reset
+        try {
+            await supabase.auth.signOut();
+            setUser(null);
+            // We don't force page reload here to allow instant UI transitions
+        } catch (error) {
+            console.error('Logout error:', error);
+            // Fallback: clear user state anyway
+            setUser(null);
+        }
     };
 
     const requestPasswordReset = async (email) => {
@@ -276,48 +242,42 @@ export const AuthProvider = ({ children }) => {
     // FUNCTION: Delete Account
     // Permanently removes the user from the database and auth.
     const deleteAccount = async () => {
-        if (user) {
-            try {
-                console.log('🗑️ Deleting account for user:', user.id);
+        if (!user?.id) return;
 
-                // Step 1: Delete from users table first
-                // (This cascades to delete related data via foreign keys)
-                const { data, error: deleteError } = await supabase
-                    .from('users')
-                    .delete()
-                    .eq('id', user.id);
+        try {
+            console.log('🗑️ Initiating account deletion for:', user.id);
 
-                console.log('Delete response:', { data, error: deleteError });
+            // Step 1: Delete from users table
+            // We use .select() to verify the row was actually found and deleted
+            const { data, error: deleteError } = await supabase
+                .from('users')
+                .delete()
+                .eq('id', user.id)
+                .select();
 
-                if (deleteError) {
-                    console.error('❌ Error deleting user profile:', deleteError);
-                    alert('Failed to delete account: ' + deleteError.message);
-                    throw deleteError;
-                }
-
-                console.log('✅ User profile deleted');
-
-                // Step 2: Delete from Supabase Auth
-                // Note: Supabase doesn't allow users to delete their own auth account from client
-                // The email will remain reserved in auth.users
-                // User will need to contact support or use a different email to sign up again
-                
-                // Sign out
-                await supabase.auth.signOut();
-                console.log('✅ User signed out');
-
-                // Clear local state
-                setUser(null);
-                
-                // Show success message with note about email
-                alert('Your account has been deleted successfully.\n\nNote: Your email address is now deactivated. To create a new account, please use a different email address or contact support to fully remove your email from the system.');
-                
-                // Redirect to home
-                window.location.href = '/';
-            } catch (error) {
-                console.error('❌ Delete account failed:', error);
-                alert('Failed to delete account: ' + error.message);
+            if (deleteError) {
+                console.error('❌ Data deletion error:', deleteError);
+                throw new Error(`Failed to remove profile: ${deleteError.message}`);
             }
+
+            console.log('✅ Database profile removal complete');
+
+            // Step 2: Sign out from Auth
+            // Note: Users cannot delete their own Auth credentials from client-side JS
+            // but signing them out ensures they can't access the app anymore.
+            await supabase.auth.signOut();
+
+            // Step 3: Clear local state
+            setUser(null);
+
+            console.log('✅ User signed out and state cleared');
+
+            // Navigation will be handled by the calling component (Settings.jsx)
+            return { success: true };
+        } catch (error) {
+            console.error('❌ Delete account process failed:', error);
+            alert(`Account deletion failed: ${error.message}. Please try logging in again and try once more.`);
+            return { success: false, error: error.message };
         }
     };
 
