@@ -20,19 +20,11 @@ export default function AthleteDashboard() {
 
     // DATA FILTERING
     // A. "My Events" = All events where my ID is in the participants list.
-    const myEvents = events.filter(e => {
-        const status = getEventParticipationStatus
-            ? getEventParticipationStatus(e.id).status
-            : (hasJoinedEvent(e.id) ? 'joined' : 'not_joined');
-        return status === 'joined';
-    });
+    const myEvents = events.filter(e => e.participants?.includes(user?.id));
 
     // B. "Available Events" = All events I haven't joined yet that match my category (e.g. Boxing).
     const availableEvents = events.filter(e => {
-        const status = getEventParticipationStatus
-            ? getEventParticipationStatus(e.id).status
-            : (hasJoinedEvent(e.id) ? 'joined' : 'not_joined');
-        if (status === 'joined') return false;
+        if (e.participants?.includes(user?.id)) return false;
         return (user.category === 'All' || !user.category || e.category === user.category);
     });
 
@@ -40,7 +32,7 @@ export default function AthleteDashboard() {
         <div>
             {/* --- WELCOME BANNER --- */}
             <div style={{ marginBottom: '2rem' }}>
-                <h2 style={{ color: "var(--text-primary)",  fontSize: '2rem' }}>Welcome, {user.firstName}</h2>
+                <h2 style={{ color: "var(--text-primary)", fontSize: '2rem' }}>Welcome, {user.firstName}</h2>
                 <p style={{ color: 'var(--text-secondary)' }}>Track your victories and find your next challenge.</p>
             </div>
 
@@ -75,39 +67,13 @@ export default function AthleteDashboard() {
                                     <span className="badge badge-secondary">{ev.category}</span>
                                     <h4 style={{ fontSize: '1.4rem', marginTop: '0.5rem' }}>{ev.title}</h4>
                                 </div>
-                                {(() => {
-                                    const status = getEventParticipationStatus
-                                        ? getEventParticipationStatus(ev.id).status
-                                        : (hasJoinedEvent(ev.id) ? 'joined' : 'not_joined');
-
-                                    if (status === 'joined') {
-                                        return (
-                                            <div className="badge badge-secondary" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', whiteSpace: 'nowrap' }}>
-                                                <CheckCircle size={14} /> You have joined this event
-                                            </div>
-                                        );
-                                    }
-
-                                    if (status === 'pending_verification') {
-                                        return (
-                                            <div className="badge badge-secondary" style={{ whiteSpace: 'nowrap' }}>
-                                                Pending verification
-                                            </div>
-                                        );
-                                    }
-
-                                    if (status === 'pending_payment') {
-                                        return (
-                                            <div className="badge badge-secondary" style={{ whiteSpace: 'nowrap' }}>
-                                                Pending payment
-                                            </div>
-                                        );
-                                    }
-
-                                    return (
-                                        <button onClick={() => navigate(`/events/${ev.id}`)} className="btn btn-primary">View Details</button>
-                                    );
-                                })()}
+                                {ev.participants?.includes(user?.id) ? (
+                                    <div className="badge badge-secondary" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', whiteSpace: 'nowrap' }}>
+                                        <CheckCircle size={14} /> Participating
+                                    </div>
+                                ) : (
+                                    <button onClick={() => navigate(`/events/${ev.id}`)} className="btn btn-primary">View Details</button>
+                                )}
                             </div>
 
                             <p style={{ color: 'var(--text-secondary)' }}>{ev.description}</p>
