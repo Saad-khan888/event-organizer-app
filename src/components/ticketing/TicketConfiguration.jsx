@@ -78,11 +78,18 @@ export default function TicketConfiguration({ eventId, onClose }) {
 
         setIsSubmitting(true);
         try {
+            // Sanitize data: convert empty strings to null for dates
+            // and ensure numeric types are correct.
             const ticketData = {
-                ...formData,
-                event_id: eventId,
+                name: formData.name,
+                description: formData.description || null,
                 price: priceNum,
                 total_quantity: qtyNum,
+                sale_start_date: formData.sale_start_date || null,
+                sale_end_date: formData.sale_end_date || null,
+                event_id: eventId,
+                // On creation, all tickets are available
+                available_quantity: editingId ? undefined : qtyNum,
                 sold_count: editingId ? undefined : 0
             };
 
@@ -255,75 +262,106 @@ export default function TicketConfiguration({ eventId, onClose }) {
                     </div>
                 ) : (
                     <div style={{ display: 'grid', gap: '1rem' }}>
-                        {eventTickets.map(ticket => (
-                            <div key={ticket.id} className="card glass-panel" style={{ padding: '1.5rem' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                                    <div style={{ flex: 1 }}>
-                                        <h4 style={{ color: 'var(--primary)', marginBottom: '0.5rem', fontSize: '1.2rem' }}>
-                                            {ticket.name}
-                                        </h4>
-                                        {ticket.description && (
-                                            <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-                                                {ticket.description}
-                                            </p>
-                                        )}
+                        {eventTickets.map(ticket => {
+                            const available = (ticket.total_quantity || 0) - (ticket.sold_count || 0);
+                            const soldPercentage = ticket.total_quantity > 0
+                                ? Math.min(100, Math.round((ticket.sold_count / ticket.total_quantity) * 100))
+                                : 0;
 
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
-                                            <div>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                                                    <DollarSign size={16} />
-                                                    <span>Price</span>
-                                                </div>
-                                                <div style={{ fontSize: '1.2rem', fontWeight: '600', color: 'var(--primary)' }}>
-                                                    PKR {ticket.price}
-                                                </div>
+                            return (
+                                <div key={ticket.id} className="card glass-panel" style={{
+                                    padding: '1.5rem',
+                                    borderLeft: `4px solid ${available > 0 ? 'var(--primary)' : 'var(--danger)'}`,
+                                    transition: 'transform 0.2s ease, box-shadow 0.2s ease'
+                                }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
+                                                <h4 style={{ color: 'var(--text-primary)', margin: 0, fontSize: '1.25rem', fontWeight: '600' }}>
+                                                    {ticket.name}
+                                                </h4>
+                                                <span style={{
+                                                    fontSize: '0.7rem',
+                                                    padding: '2px 8px',
+                                                    borderRadius: '20px',
+                                                    background: available > 0 ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                                                    color: available > 0 ? '#4ade80' : '#f87171',
+                                                    fontWeight: '600',
+                                                    textTransform: 'uppercase'
+                                                }}>
+                                                    {available > 0 ? 'Active' : 'Sold Out'}
+                                                </span>
                                             </div>
 
-                                            <div>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                                                    <Users size={16} />
-                                                    <span>Available</span>
-                                                </div>
-                                                <div style={{ fontSize: '1.2rem', fontWeight: '600' }}>
-                                                    {(ticket.total_quantity || 0) - (ticket.sold_count || 0)} / {ticket.total_quantity || 0}
-                                                </div>
-                                            </div>
-
-                                            {ticket.sale_end_date && (
-                                                <div>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                                                        <Calendar size={16} />
-                                                        <span>Sale Ends</span>
-                                                    </div>
-                                                    <div style={{ fontSize: '0.95rem' }}>
-                                                        {new Date(ticket.sale_end_date).toLocaleDateString()}
-                                                    </div>
-                                                </div>
+                                            {ticket.description && (
+                                                <p style={{ color: 'var(--text-secondary)', marginBottom: '1.25rem', fontSize: '0.95rem', lineHeight: '1.5' }}>
+                                                    {ticket.description}
+                                                </p>
                                             )}
+
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1.5rem', background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '12px' }}>
+                                                <div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>
+                                                        <DollarSign size={14} />
+                                                        <span>Price</span>
+                                                    </div>
+                                                    <div style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--primary)' }}>
+                                                        PKR {ticket.price.toLocaleString()}
+                                                    </div>
+                                                </div>
+
+                                                <div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>
+                                                        <Users size={14} />
+                                                        <span>Availability</span>
+                                                    </div>
+                                                    <div style={{ fontSize: '1.1rem', fontWeight: '700' }}>
+                                                        {available} <span style={{ fontSize: '0.8rem', fontWeight: '400', color: 'var(--text-secondary)' }}>left of {ticket.total_quantity}</span>
+                                                    </div>
+                                                    <div style={{ height: '4px', width: '100%', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', marginTop: '6px', overflow: 'hidden' }}>
+                                                        <div style={{
+                                                            height: '100%',
+                                                            width: `${soldPercentage}%`,
+                                                            background: soldPercentage > 80 ? 'var(--danger)' : 'var(--primary)',
+                                                            transition: 'width 0.5s ease'
+                                                        }}></div>
+                                                    </div>
+                                                </div>
+
+                                                {ticket.sale_end_date && (
+                                                    <div>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>
+                                                            <Calendar size={14} />
+                                                            <span>Ends On</span>
+                                                        </div>
+                                                        <div style={{ fontSize: '1rem', fontWeight: '600' }}>
+                                                            {new Date(ticket.sale_end_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                            <button
+                                                onClick={() => handleEdit(ticket)}
+                                                className="btn btn-ghost"
+                                                style={{ padding: '0.5rem', background: 'rgba(255,255,255,0.05)' }}
+                                            >
+                                                <Edit size={18} />
+                                            </button>
+                                            <button
+                                                onClick={() => handleDelete(ticket.id)}
+                                                className="btn btn-ghost"
+                                                style={{ padding: '0.5rem', background: 'rgba(239, 68, 68, 0.05)', color: 'var(--danger)' }}
+                                            >
+                                                <Trash2 size={18} />
+                                            </button>
                                         </div>
                                     </div>
-
-                                    <div style={{ display: 'flex', gap: 'var(--space-1)', flexWrap: 'wrap' }}>
-                                        <button
-                                            onClick={() => handleEdit(ticket)}
-                                            className="btn btn-ghost btn-sm"
-                                            style={{ padding: 'var(--space-1)', minWidth: '40px' }}
-                                            title="Edit"
-                                        >
-                                            <Edit size={18} />
-                                        </button>
-                                        <button
-                                            onClick={() => handleDelete(ticket.id)}
-                                            className="btn btn-ghost btn-sm"
-                                            style={{ padding: 'var(--space-1)', color: 'var(--md-error)', minWidth: '40px' }}
-                                            title="Delete"
-                                        >
-                                            <Trash2 size={18} />
-                                        </button>
-                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
             </div>

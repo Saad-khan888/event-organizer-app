@@ -326,95 +326,132 @@ export default function PaymentMethodSetup({ eventId, onClose }) {
 
             {/* Payment Methods List */}
             <div>
-                <h3 style={{ marginBottom: '1rem', color: 'var(--text-primary)' }}>
-                    Configured Methods ({eventPaymentMethods.length})
+                <h3 style={{ marginBottom: '1.25rem', color: 'var(--text-primary)', fontSize: '1.1rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    Configured Methods <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '400', background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: '12px' }}>{eventPaymentMethods.length}</span>
                 </h3>
 
                 {eventPaymentMethods.length === 0 ? (
-                    <div className="card glass-panel" style={{ padding: '3rem', textAlign: 'center' }}>
-                        <CreditCard size={48} style={{ margin: '0 auto 1rem', color: 'var(--text-secondary)', opacity: 0.5 }} />
-                        <p style={{ color: 'var(--text-secondary)' }}>
-                            No payment methods configured. Add at least one to enable ticket sales!
+                    <div className="card glass-panel" style={{ padding: '3.5rem 2rem', textAlign: 'center' }}>
+                        <div style={{ background: 'rgba(255,255,255,0.03)', width: '80px', height: '80px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
+                            <CreditCard size={40} style={{ color: 'var(--text-secondary)', opacity: 0.4 }} />
+                        </div>
+                        <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem' }}>
+                            No payment methods configured.
+                        </p>
+                        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '0.5rem', opacity: 0.7 }}>
+                            Add at least one to enable ticket sales!
                         </p>
                     </div>
                 ) : (
-                    <div style={{ display: 'grid', gap: '1rem' }}>
-                        {eventPaymentMethods.map(method => (
-                            <div key={method.id} className="card glass-panel" style={{ padding: '1.5rem' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                    <div style={{ display: 'grid', gap: '1.25rem' }}>
+                        {eventPaymentMethods.sort((a, b) => (a.display_order || 0) - (b.display_order || 0)).map(method => (
+                            <div key={method.id} className="card glass-panel" style={{
+                                padding: '1.5rem',
+                                borderLeft: `4px solid ${method.is_active ? 'var(--primary)' : 'var(--text-secondary)'}`,
+                                transition: 'transform 0.2s ease'
+                            }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
                                     <div style={{ flex: 1 }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
-                                            <div style={{ color: 'var(--primary)' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+                                            <div style={{ color: 'var(--primary)', background: 'rgba(var(--primary-rgb, 59, 130, 246), 0.1)', padding: '8px', borderRadius: '10px' }}>
                                                 {getIcon(method.type)}
                                             </div>
-                                            <h4 style={{ color: 'var(--primary)', fontSize: '1.2rem' }}>
+                                            <h4 style={{ color: 'var(--text-primary)', fontSize: '1.15rem', fontWeight: '600', margin: 0 }}>
                                                 {method.name}
                                             </h4>
-                                            {method.is_active && (
+                                            {method.is_active !== false && (
                                                 <span style={{
-                                                    background: 'rgba(34, 197, 94, 0.2)',
-                                                    color: '#86efac',
-                                                    padding: '0.25rem 0.75rem',
-                                                    borderRadius: '12px',
-                                                    fontSize: '0.85rem'
+                                                    background: 'rgba(34, 197, 94, 0.15)',
+                                                    color: '#4ade80',
+                                                    padding: '2px 10px',
+                                                    borderRadius: '20px',
+                                                    fontSize: '0.7rem',
+                                                    fontWeight: '600',
+                                                    textTransform: 'uppercase',
+                                                    letterSpacing: '0.5px'
                                                 }}>
                                                     Active
                                                 </span>
                                             )}
                                         </div>
 
-                                        <div style={{ marginTop: '1rem', padding: '1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}>
+                                        <div style={{
+                                            display: 'grid',
+                                            gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+                                            gap: '1rem',
+                                            padding: '1.25rem',
+                                            background: 'rgba(255,255,255,0.02)',
+                                            borderRadius: '12px',
+                                            border: '1px solid rgba(255,255,255,0.05)',
+                                            overflow: 'hidden'
+                                        }}>
                                             {method.type === 'bank_transfer' && (
                                                 <>
-                                                    <div style={{ marginBottom: '0.5rem' }}>
-                                                        <strong>Account Title:</strong> {method.account_details?.accountTitle}
+                                                    <div style={{ fontSize: '0.9rem', overflowWrap: 'break-word', wordBreak: 'break-word' }}>
+                                                        <div style={{ color: 'var(--text-secondary)', fontSize: '0.7rem', textTransform: 'uppercase', marginBottom: '4px', letterSpacing: '0.5px' }}>Account Title</div>
+                                                        <div style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{method.account_details?.accountTitle}</div>
                                                     </div>
-                                                    <div style={{ marginBottom: '0.5rem' }}>
-                                                        <strong>Account Number:</strong> {method.account_details?.accountNumber}
+                                                    <div style={{ fontSize: '0.9rem', overflowWrap: 'break-word', wordBreak: 'break-all' }}>
+                                                        <div style={{ color: 'var(--text-secondary)', fontSize: '0.7rem', textTransform: 'uppercase', marginBottom: '4px', letterSpacing: '0.5px' }}>Account Number / IBAN</div>
+                                                        <div style={{ fontWeight: '600', color: 'var(--text-primary)', fontFamily: 'monospace', letterSpacing: '1px' }}>{method.account_details?.accountNumber}</div>
                                                     </div>
-                                                    <div>
-                                                        <strong>Bank:</strong> {method.account_details?.bankName}
+                                                    <div style={{ fontSize: '0.9rem' }}>
+                                                        <div style={{ color: 'var(--text-secondary)', fontSize: '0.7rem', textTransform: 'uppercase', marginBottom: '4px', letterSpacing: '0.5px' }}>Bank Name</div>
+                                                        <div style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{method.account_details?.bankName}</div>
                                                     </div>
                                                 </>
                                             )}
 
                                             {(method.type === 'easypaisa' || method.type === 'jazzcash') && (
                                                 <>
-                                                    <div style={{ marginBottom: '0.5rem' }}>
-                                                        <strong>Account Title:</strong> {method.account_details?.accountTitle}
+                                                    <div style={{ fontSize: '0.9rem', overflowWrap: 'break-word', wordBreak: 'break-word' }}>
+                                                        <div style={{ color: 'var(--text-secondary)', fontSize: '0.7rem', textTransform: 'uppercase', marginBottom: '4px', letterSpacing: '0.5px' }}>Account Title</div>
+                                                        <div style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{method.account_details?.accountTitle}</div>
                                                     </div>
-                                                    <div>
-                                                        <strong>Phone Number:</strong> {method.account_details?.phoneNumber}
+                                                    <div style={{ fontSize: '0.9rem', overflowWrap: 'break-word', wordBreak: 'break-all' }}>
+                                                        <div style={{ color: 'var(--text-secondary)', fontSize: '0.7rem', textTransform: 'uppercase', marginBottom: '4px', letterSpacing: '0.5px' }}>Mobile Number</div>
+                                                        <div style={{ fontWeight: '600', color: 'var(--text-primary)', letterSpacing: '1px' }}>{method.account_details?.phoneNumber}</div>
                                                     </div>
                                                 </>
                                             )}
 
                                             {method.type === 'cash' && (
-                                                <div>
-                                                    <strong>Instructions:</strong> {method.account_details?.instructions}
-                                                </div>
-                                            )}
-
-                                            {method.instructions && (
-                                                <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-                                                    <em style={{ color: 'var(--text-secondary)' }}>{method.instructions}</em>
+                                                <div style={{ fontSize: '0.9rem', overflowWrap: 'break-word', wordBreak: 'break-word' }}>
+                                                    <div style={{ color: 'var(--text-secondary)', fontSize: '0.7rem', textTransform: 'uppercase', marginBottom: '4px', letterSpacing: '0.5px' }}>Payment Instructions</div>
+                                                    <div style={{ color: 'var(--text-primary)', lineHeight: '1.5' }}>{method.account_details?.instructions}</div>
                                                 </div>
                                             )}
                                         </div>
+
+                                        {method.instructions && (
+                                            <div style={{
+                                                marginTop: '1rem',
+                                                padding: '0.75rem 1rem',
+                                                borderLeft: '3px solid rgba(255,255,255,0.1)',
+                                                background: 'rgba(255,255,255,0.01)',
+                                                overflowWrap: 'break-word',
+                                                wordBreak: 'break-word'
+                                            }}>
+                                                <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px' }}>Additional Notes</div>
+                                                <em style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', fontStyle: 'normal' }}>{method.instructions}</em>
+                                            </div>
+                                        )}
                                     </div>
 
-                                    <div style={{ display: 'flex', gap: '0.5rem', marginLeft: '1rem' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                                         <button
                                             onClick={() => handleEdit(method)}
                                             className="btn btn-ghost"
-                                            style={{ padding: '0.5rem' }}
+                                            style={{ padding: '0.6rem', background: 'rgba(255,255,255,0.05)' }}
+                                            title="Edit Payment Method"
                                         >
                                             <Edit size={18} />
                                         </button>
                                         <button
                                             onClick={() => handleDelete(method.id)}
                                             className="btn btn-ghost"
-                                            style={{ padding: '0.5rem', color: 'var(--danger)' }}
+                                            style={{ padding: '0.6rem', background: 'rgba(239, 68, 68, 0.05)', color: 'var(--danger)' }}
+                                            title="Delete Payment Method"
                                         >
                                             <Trash2 size={18} />
                                         </button>
@@ -428,3 +465,4 @@ export default function PaymentMethodSetup({ eventId, onClose }) {
         </div>
     );
 }
+

@@ -1,5 +1,6 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
+import { useAuth } from './AuthContext';
 
 // -----------------------------------------------------------------------------
 // DATA CONTEXT (The App's "Store")
@@ -17,6 +18,8 @@ export const useData = () => useContext(DataContext);
 
 // 3. Provider Component
 export const DataProvider = ({ children }) => {
+  const { user } = useAuth();
+
   // -------------------
   // A. STATE VARIABLES
   // -------------------
@@ -28,64 +31,59 @@ export const DataProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   // -------------------
-  // B. INITIAL DATA LOAD & REALTIME SUBSCRIPTIONS
+  // B. DATA LOADING LOGIC
   // -------------------
-  // This effect runs ONCE when the app starts.
-  // It fetches the initial lists and sets up Realtime Listeners with proper lifecycle management.
-  useEffect(() => {
-    let cleanup = null;
 
-    // Function to fetch data from Supabase
-    const fetchData = async () => {
-      try {
-        // Fetch ALL records from the 'events' table
-        // Sorting: order by created_at descending (newest first)
-        const { data: eventsList, error: eventsError } = await supabase
-          .from('events')
-          .select('*')
-          .order('created_at', { ascending: false });
+  // Function to fetch data from Supabase
+  // We use useCallback so this function can be safely used in useEffect without causing loops
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      console.log('📦 Fetching global data (Events, Reports, Users)...');
 
-        if (eventsError) throw eventsError;
+      // Fetch ALL records from the 'events' table
+      const { data: eventsList, error: eventsError } = await supabase
+        .from('events')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-        // Fetch ALL from 'reports'
-        const { data: reportsList, error: reportsError } = await supabase
-          .from('reports')
-          .select('*')
-          .order('created_at', { ascending: false });
+      if (eventsError) throw eventsError;
 
-        if (reportsError) throw reportsError;
+      // Fetch ALL from 'reports'
+      const { data: reportsList, error: reportsError } = await supabase
+        .from('reports')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-        // Fetch ALL from 'users'
-        // NOTE: In a high-scale production app, we should paginate this or fetch individual profiles on demand.
-        // For now, we fetch all to ensure Profile/Event pages have all necessary data without refactoring the whole app.
-        const { data: usersList, error: usersError } = await supabase
-          .from('users')
-          .select('*')
-          .order('created_at', { ascending: false });
+      if (reportsError) throw reportsError;
 
-        if (usersError) throw usersError;
+      // Fetch ALL from 'users'
+      const { data: usersList, error: usersError } = await supabase
+        .from('users')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-        // Update our state variables with the fetched data
-        setEvents(eventsList || []);
-        setReports(reportsList || []);
-        setUsers(usersList || []);
-      } catch (err) {
-        console.error('Error fetching data:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
+      if (usersError) throw usersError;
 
-    // Fetch initial data
-    fetchData();
+      // Update our state variables with the fetched data
+      setEvents(eventsList || []);
+      setReports(reportsList || []);
+      setUsers(usersList || []);
 
-    // Cleanup: Unsubscribe when the component unmounts
-    return () => {
-      if (cleanup) {
-        cleanup();
-      }
-    };
+      console.log('✅ Global data loaded successfully');
+    } catch (err) {
+      console.error('❌ Error fetching data:', err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  // This effect runs on startup AND whenever the user logs in/out.
+  // Re-fetching on user change is CRITICAL for RLS (Row Level Security) 
+  // because Supabase returns different data depending on who is asking.
+  useEffect(() => {
+    fetchData();
+  }, [fetchData, user?.id]);
 
   // -------------------
   // D. HELPER FUNCTIONS (API Calls)
@@ -275,7 +273,8 @@ export const DataProvider = ({ children }) => {
       addReport, joinEvent,                // Report & Join Operations
       updateUser,                          // User Operations
       deleteEvent, deleteReport, removeUser, // Delete Actions
-      clearAllData                         // Debug Action
+      clearAllData,                         // Debug Action
+      refreshData: fetchData               // Manual Refresh Trigger
     }}>
       {children}
     </DataContext.Provider>
