@@ -18,7 +18,7 @@ export default function EventDetails() {
     // 1. HOOKS & PARAMETERS
     const { id } = useParams(); // Get the unique Event ID from the URL
     const navigate = useNavigate();
-    const { events, users } = useData(); // Global Data
+    const { events, users, joinEvent } = useData(); // Global Data
     const { user } = useAuth(); // Current logged-in user
 
     // 2. STATE (Local to this event)
@@ -45,11 +45,14 @@ export default function EventDetails() {
     }
 
     // 4. ELIGIBILITY LOGIC
+    const isAthlete = user?.role === 'athlete';
+    const isAthleteJoined = isAthlete && event.participants?.includes(user?.id);
+
     const participationStatus = user && getEventParticipationStatus
         ? getEventParticipationStatus(event.id).status
         : (user && hasJoinedEvent(event.id) ? 'joined' : 'not_joined');
 
-    const isJoined = participationStatus === 'joined';
+    const isJoined = participationStatus === 'joined' || isAthleteJoined;
 
     // Format the timestamp for human reading
     const eventDate = new Date(event.date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
@@ -180,8 +183,27 @@ export default function EventDetails() {
 
                             {ticketingLoading ? (
                                 <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
-                                    Loading ticket information...
+                                    Loading...
                                 </p>
+                            ) : isAthlete ? (
+                                user ? (
+                                    <button
+                                        onClick={async () => {
+                                            const res = await joinEvent(event.id, user.id);
+                                            if (res.success) {
+                                                alert('Successfully joined the event!');
+                                            } else {
+                                                alert('Failed to join: ' + res.error);
+                                            }
+                                        }}
+                                        className="btn btn-primary"
+                                        style={{ marginLeft: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                                    >
+                                        <CheckCircle size={20} /> Join Event
+                                    </button>
+                                ) : (
+                                    <button onClick={() => navigate('/login')} className="btn btn-primary">Login to Join Event</button>
+                                )
                             ) : hasTickets ? (
                                 user ? (
                                     <button
@@ -207,7 +229,7 @@ export default function EventDetails() {
 
             {/* --- PARTICIPANTS DIRECTORY --- */}
             <div style={{ marginTop: '3rem' }}>
-                <h2 style={{ color: "var(--text-primary)",  marginBottom: '1.5rem', fontSize: '1.75rem' }}>Confirmed Participants ({participantsList.length})</h2>
+                <h2 style={{ color: "var(--text-primary)", marginBottom: '1.5rem', fontSize: '1.75rem' }}>Confirmed Participants ({participantsList.length})</h2>
                 {participantsList.length === 0 ? (
                     <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>No participants have joined yet. Be the first!</p>
                 ) : (

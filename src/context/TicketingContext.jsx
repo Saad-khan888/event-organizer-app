@@ -49,7 +49,12 @@ export function TicketingProvider({ children }) {
         const userCategory = user.category;
         const eventCategory = event.category;
 
-        if (user.role === 'athlete' || user.role === 'reporter') {
+        // Athletes join directly, they don't buy tickets anymore
+        if (user.role === 'athlete') {
+            return { allowed: false, reason: 'Athletes join events directly without tickets.' };
+        }
+
+        if (user.role === 'reporter') {
             // Allow if user has no category set or explicitly 'All'
             if (userCategory && userCategory !== 'All') {
                 if (!eventCategory || String(eventCategory) !== String(userCategory)) {

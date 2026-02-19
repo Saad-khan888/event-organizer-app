@@ -203,7 +203,7 @@ export default function Profile() {
                     </div>
                 ) : (
                     // Display Mode Text
-                    <h1 style={{ color: "var(--text-primary)",  fontSize: '2.5rem', marginBottom: '0.5rem' }}>
+                    <h1 style={{ color: "var(--text-primary)", fontSize: '2.5rem', marginBottom: '0.5rem' }}>
                         {user.companyName || `${user.firstName} ${user.lastName}`}
                     </h1>
                 )}
@@ -264,7 +264,7 @@ export default function Profile() {
             </div>
 
             {/* --- MY TICKETS SECTION (Only for Owner) --- */}
-            {isOwnProfile && (
+            {isOwnProfile && user.role !== 'athlete' && (
                 <div style={{ marginBottom: 'var(--space-6)' }}>
                     <div style={{
                         marginBottom: 'var(--space-3)',
@@ -297,7 +297,7 @@ export default function Profile() {
                 user.role === 'organizer' && (
                     <div style={{ display: 'grid', gap: '3rem' }}>
                         <div>
-                            <h2 style={{ color: "var(--text-primary)",  marginBottom: '1.5rem' }}>Ongoing & Upcoming Events</h2>
+                            <h2 style={{ color: "var(--text-primary)", marginBottom: '1.5rem' }}>Ongoing & Upcoming Events</h2>
                             {ongoingEvents.length === 0 ? <p style={{ color: 'var(--text-secondary)' }}>No active events.</p> : (
                                 <div style={{ display: 'grid', gap: '1rem' }}>
                                     {ongoingEvents.map(ev => (
@@ -320,7 +320,7 @@ export default function Profile() {
                         </div>
 
                         <div>
-                            <h2 style={{ color: "var(--text-primary)",  marginBottom: '1.5rem', opacity: 0.8 }}>Past Event History</h2>
+                            <h2 style={{ color: "var(--text-primary)", marginBottom: '1.5rem', opacity: 0.8 }}>Past Event History</h2>
                             {/* Similar logic for past events... */}
                         </div>
                     </div>
@@ -331,7 +331,7 @@ export default function Profile() {
             {
                 user.role === 'athlete' && (
                     <div style={{ marginBottom: '3rem' }}>
-                        <h2 style={{ color: "var(--text-primary)",  marginBottom: '1.5rem' }}>Event Participation History</h2>
+                        <h2 style={{ color: "var(--text-primary)", marginBottom: '1.5rem' }}>Event Participation History</h2>
                         {participatedEvents.length === 0 ? <p style={{ color: 'var(--text-secondary)' }}>No event history.</p> : (
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
                                 {participatedEvents.map(ev => (
@@ -350,7 +350,7 @@ export default function Profile() {
             {
                 user.role === 'reporter' && (
                     <div style={{ marginBottom: '3rem' }}>
-                        <h2 style={{ color: "var(--text-primary)",  marginBottom: '1.5rem' }}>Published Reports</h2>
+                        <h2 style={{ color: "var(--text-primary)", marginBottom: '1.5rem' }}>Published Reports</h2>
                         {userReports.length === 0 ? <p style={{ color: 'var(--text-secondary)' }}>No reports published.</p> : (
                             <div style={{ display: 'grid', gap: '1rem' }}>
                                 {userReports.map(r => (

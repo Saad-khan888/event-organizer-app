@@ -169,9 +169,29 @@ export const DataProvider = ({ children }) => {
   };
 
   // 5. Join Event (Unique Logic)
-  // This is a special update operation. It adds the current user's ID to the event's 'participants' array.
-  const joinEvent = async (_eventId, _userId) => {
-    return { success: false, error: 'Direct joining is disabled. Please purchase tickets to participate.' };
+  // This now uses a secure RPC function to bypass RLS restrictions for Athletes.
+  const joinEvent = async (eventId, userId) => {
+    try {
+      // Call the RPC function created via SQL
+      const { data, error } = await supabase.rpc('join_event_direct', {
+        p_event_id: eventId,
+        p_user_id: userId
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        // Update local state with the returned event data
+        const updatedEvent = data.data;
+        setEvents((prev) => prev.map((e) => (e.id === eventId ? updatedEvent : e)));
+        return { success: true, data: updatedEvent };
+      } else {
+        return { success: false, error: data.error };
+      }
+    } catch (err) {
+      console.error('Failed to join event:', err);
+      return { success: false, error: err.message };
+    }
   };
 
   // 6. Delete Operations
@@ -199,7 +219,7 @@ export const DataProvider = ({ children }) => {
   const deleteReport = async (id) => {
     try {
       console.log('Attempting to delete report:', id);
-      
+
       const { data, error } = await supabase
         .from('reports')
         .delete()

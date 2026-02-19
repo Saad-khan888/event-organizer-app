@@ -10,6 +10,7 @@ import { Ticket, Calendar, MapPin, CheckCircle, Upload, X } from 'lucide-react';
 
 export default function MyTickets() {
     const { user } = useAuth();
+    if (user?.role === 'athlete') return null;
     const { tickets, orders, loading, submitPaymentProof } = useTicketing();
     const [selectedTicketGroup, setSelectedTicketGroup] = useState(null);
     const [uploadingOrder, setUploadingOrder] = useState(null);

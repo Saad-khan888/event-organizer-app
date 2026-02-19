@@ -56,7 +56,7 @@ export default function Events() {
 
             {/* --- HEADER --- */}
             <div style={{ marginBottom: '3rem', textAlign: 'center' }}>
-                <h1 style={{ color: "var(--text-primary)",  fontSize: '2.5rem', marginBottom: '1rem' }}>
+                <h1 style={{ color: "var(--text-primary)", fontSize: '2.5rem', marginBottom: '1rem' }}>
                     Upcoming Sports Events
                 </h1>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem' }}>
@@ -294,6 +294,26 @@ export default function Events() {
                                         {(() => {
                                             if (!user) return null;
 
+                                            const isAthlete = user.role === 'athlete';
+                                            const isAthleteJoined = isAthlete && event.participants?.includes(user?.id);
+
+                                            if (isAthleteJoined) {
+                                                return (
+                                                    <div className="badge badge-secondary" style={{
+                                                        whiteSpace: 'nowrap',
+                                                        flexShrink: 0,
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '0.25rem'
+                                                    }}>
+                                                        <CheckCircle size={14} /> Joined
+                                                    </div>
+                                                );
+                                            }
+
+                                            // Athletes don't have tickets/pending statuses
+                                            if (isAthlete) return null;
+
                                             const status = getEventParticipationStatus
                                                 ? getEventParticipationStatus(event.id).status
                                                 : (hasJoinedEvent(event.id) ? 'joined' : 'not_joined');
@@ -307,7 +327,7 @@ export default function Events() {
                                                         alignItems: 'center',
                                                         gap: '0.25rem'
                                                     }}>
-                                                        <CheckCircle size={14} /> You have joined this event
+                                                        <CheckCircle size={14} /> Joined
                                                     </div>
                                                 );
                                             }

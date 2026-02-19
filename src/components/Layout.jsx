@@ -44,7 +44,8 @@ const Navbar = () => {
                 height: '64px'
             }}>
                 {/* Logo */}
-                <Link to="/" style={{ color: "var(--text-primary)", 
+                <Link to="/" style={{
+                    color: "var(--text-primary)",
                     fontSize: '1.5rem',
                     fontWeight: 700,
                     letterSpacing: '-0.5px'
@@ -112,9 +113,11 @@ const Navbar = () => {
                                             <Settings size={20} /> Settings
                                         </Link>
 
-                                        <Link to="/my-tickets" className="menu-item" onClick={() => setMenuOpen(false)}>
-                                            <Ticket size={20} /> My Tickets
-                                        </Link>
+                                        {user.role !== 'athlete' && (
+                                            <Link to="/my-tickets" className="menu-item" onClick={() => setMenuOpen(false)}>
+                                                <Ticket size={20} /> My Tickets
+                                            </Link>
+                                        )}
 
                                         {user.role === 'organizer' && (
                                             <Link to="/verify-payments" className="menu-item" onClick={() => setMenuOpen(false)}>
