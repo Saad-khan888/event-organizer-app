@@ -34,7 +34,13 @@ export default function ReporterDashboard() {
     // Main Publishing Logic
     const handleSubmit = async (e) => {
         e.preventDefault();
-        
+
+        // Safety check: ensure user is available
+        if (!user?.id) {
+            alert('Your session has expired or is invalid. Please refresh the page and log in again.');
+            return;
+        }
+
         if (isPublishing) return; // Prevent double submission
         setIsPublishing(true);
 

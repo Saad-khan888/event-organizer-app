@@ -131,18 +131,14 @@ export function TicketingProvider({ children }) {
                 // Organizers see orders for their events
                 let organizerEventIds = [];
                 try {
-                    const { data, error } = await supabase
+                    const { data: organizerEvents, error } = await supabase
                         .from('events')
-                        .select('id, organizer, organizerId');
+                        .select('id')
+                        .or(`organizer.eq.${user.id},organizerId.eq.${user.id}`);
 
                     if (error) throw error;
 
-                    const organizerEvents = (data || []).filter(e =>
-                        String(e.organizer) === String(user.id) ||
-                        String(e.organizerId) === String(user.id)
-                    );
-
-                    organizerEventIds = organizerEvents.map(e => String(e.id));
+                    organizerEventIds = (organizerEvents || []).map(e => String(e.id));
                 } catch (error) {
                     console.error('Error fetching organizer event IDs:', error);
                 }
