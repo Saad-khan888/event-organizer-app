@@ -96,10 +96,25 @@ export default function OrganizerDashboard() {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
+        // Safety check: ensure user session is valid
+        if (!user?.id) {
+            alert("Your session has expired. Please refresh the page and log in again.");
+            return;
+        }
+
         if (isSubmitting) return;
         setIsSubmitting(true);
+        console.log('🚀 Submitting event for user:', user.id);
 
         try {
+            // Failsafe: Reset "processing" after 20 seconds no matter what
+            const failsafe = setTimeout(() => {
+                if (isSubmitting) {
+                    setIsSubmitting(false);
+                    console.warn("⚠️ Submission timed out (Failsafe triggered)");
+                }
+            }, 20000);
+
             if (editingId) {
                 // SCENARIO: EDITING
                 await updateEvent(editingId, { ...formData });
@@ -109,6 +124,7 @@ export default function OrganizerDashboard() {
                 await addEvent({ ...formData, organizer: user.id, organizerId: user.id });
                 alert("Event created successfully!");
             }
+            clearTimeout(failsafe);
             resetForm(); // Clean up ONLY on success
         } catch (err) {
             console.error('Submit error:', err);

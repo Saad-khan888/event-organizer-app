@@ -21,11 +21,13 @@ export default function Settings() {
 
     // Permanently remove the user from the system
     const handleDeleteAccount = async () => {
-        if (window.confirm("⚠️ WARNING: Delete Account?\n\nThis will permanently delete:\n• Your profile and all personal data\n• All events you created\n• All reports you published\n• All tickets and orders\n\nThis action CANNOT be undone!\n\nAre you absolutely sure?")) {
+        if (window.confirm("⚠️ WARNING: Delete Account?\n\nThis will permanently delete your profile and all associated data.\n\nThis action CANNOT be undone!\n\nAre you absolutely sure?")) {
             try {
-                // Delete account (handles DB deletion and sign out)
-                await deleteAccount();
-                // Navigation is handled inside deleteAccount function
+                const result = await deleteAccount();
+                if (result?.success) {
+                    alert('Your account has been deleted successfully.');
+                    navigate('/');
+                }
             } catch (error) {
                 console.error('Delete account error:', error);
                 alert('Failed to delete account. Please try again or contact support.');
@@ -34,9 +36,11 @@ export default function Settings() {
     };
 
     // End the current session
-    const handleLogout = () => {
-        logout();
-        navigate('/');
+    const handleLogout = async () => {
+        if (window.confirm("Are you sure you want to log out?")) {
+            await logout();
+            navigate('/login');
+        }
     };
 
     // Safety check: ensure user object exists
@@ -47,7 +51,7 @@ export default function Settings() {
     // 3. RENDER
     return (
         <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-            <h1 style={{ color: "var(--text-primary)",  marginBottom: '2rem', textAlign: 'center' }}>Settings & Preferences</h1>
+            <h1 style={{ color: "var(--text-primary)", marginBottom: '2rem', textAlign: 'center' }}>Settings & Preferences</h1>
 
             {/* --- USER ACCOUNT SUMMARY --- */}
             <div className="card" style={{ marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '1.5rem', padding: '2rem', background: 'var(--bg-secondary)', flexWrap: 'wrap' }}>
