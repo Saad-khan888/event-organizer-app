@@ -37,6 +37,7 @@ export default function PaymentMethodSetup({ eventId, onClose }) {
         instructions: '',
         display_order: 1
     });
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const eventPaymentMethods = getEventPaymentMethods(eventId);
 
@@ -73,23 +74,33 @@ export default function PaymentMethodSetup({ eventId, onClose }) {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        const paymentMethodData = {
-            ...formData,
-            event_id: eventId
-        };
+        if (isSubmitting) return;
+        setIsSubmitting(true);
 
-        let result;
-        if (editingId) {
-            result = await updatePaymentMethod(editingId, paymentMethodData);
-        } else {
-            result = await createPaymentMethod(paymentMethodData);
-        }
+        try {
+            const paymentMethodData = {
+                ...formData,
+                event_id: eventId
+            };
 
-        if (result.success) {
-            alert(editingId ? 'Payment method updated!' : 'Payment method created!');
-            resetForm();
-        } else {
-            alert('Error: ' + result.error);
+            let result;
+            if (editingId) {
+                result = await updatePaymentMethod(editingId, paymentMethodData);
+            } else {
+                result = await createPaymentMethod(paymentMethodData);
+            }
+
+            if (result.success) {
+                alert(editingId ? 'Payment method updated!' : 'Payment method created!');
+                resetForm();
+            } else {
+                alert('Error: ' + result.error);
+            }
+        } catch (err) {
+            console.error('Submission failed:', err);
+            alert('An unexpected error occurred.');
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -302,10 +313,10 @@ export default function PaymentMethodSetup({ eventId, onClose }) {
                         </div>
 
                         <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
-                            <button type="submit" className="btn btn-primary">
-                                {editingId ? 'Update' : 'Add'} Payment Method
+                            <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
+                                {isSubmitting ? 'Saving...' : (editingId ? 'Update' : 'Add')} Payment Method
                             </button>
-                            <button type="button" onClick={resetForm} className="btn btn-ghost">
+                            <button type="button" onClick={resetForm} className="btn btn-ghost" disabled={isSubmitting}>
                                 Cancel
                             </button>
                         </div>

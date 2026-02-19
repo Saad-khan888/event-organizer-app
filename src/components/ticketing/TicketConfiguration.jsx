@@ -27,6 +27,7 @@ export default function TicketConfiguration({ eventId, onClose }) {
         sale_start_date: '',
         sale_end_date: ''
     });
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const event = events.find(e => e.id === eventId);
     const eventTickets = getEventTicketTypes(eventId);
@@ -60,26 +61,49 @@ export default function TicketConfiguration({ eventId, onClose }) {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        const ticketData = {
-            ...formData,
-            event_id: eventId,
-            price: parseFloat(formData.price),
-            total_quantity: parseInt(formData.total_quantity),
-            sold_count: editingId ? undefined : 0
-        };
+        if (isSubmitting) return;
 
-        let result;
-        if (editingId) {
-            result = await updateTicketType(editingId, ticketData);
-        } else {
-            result = await createTicketType(ticketData);
+        // Basic validation
+        const priceNum = parseFloat(formData.price);
+        const qtyNum = parseInt(formData.total_quantity);
+
+        if (isNaN(priceNum) || priceNum < 0) {
+            alert('Please enter a valid price.');
+            return;
+        }
+        if (isNaN(qtyNum) || qtyNum < 1) {
+            alert('Please enter a valid total quantity (at least 1).');
+            return;
         }
 
-        if (result.success) {
-            alert(editingId ? 'Ticket type updated!' : 'Ticket type created!');
-            resetForm();
-        } else {
-            alert('Error: ' + result.error);
+        setIsSubmitting(true);
+        try {
+            const ticketData = {
+                ...formData,
+                event_id: eventId,
+                price: priceNum,
+                total_quantity: qtyNum,
+                sold_count: editingId ? undefined : 0
+            };
+
+            let result;
+            if (editingId) {
+                result = await updateTicketType(editingId, ticketData);
+            } else {
+                result = await createTicketType(ticketData);
+            }
+
+            if (result.success) {
+                alert(editingId ? 'Ticket type updated!' : 'Ticket type created!');
+                resetForm();
+            } else {
+                alert('Error: ' + result.error);
+            }
+        } catch (err) {
+            console.error('Submission failed:', err);
+            alert('An unexpected error occurred.');
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -99,7 +123,7 @@ export default function TicketConfiguration({ eventId, onClose }) {
             {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--space-3)', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
                 <div style={{ flex: '1 1 200px', minWidth: 0 }}>
-                    <h2 style={{ color: "var(--text-primary)",  fontSize: 'clamp(1.25rem, 4vw, 1.8rem)', marginBottom: 'var(--space-1)', wordBreak: 'break-word' }}>
+                    <h2 style={{ color: "var(--text-primary)", fontSize: 'clamp(1.25rem, 4vw, 1.8rem)', marginBottom: 'var(--space-1)', wordBreak: 'break-word' }}>
                         🎫 Ticket Configuration
                     </h2>
                     <p style={{ color: 'var(--text-secondary)', fontSize: 'clamp(0.875rem, 2vw, 1rem)', wordBreak: 'break-word' }}>
@@ -205,10 +229,10 @@ export default function TicketConfiguration({ eventId, onClose }) {
                         </div>
 
                         <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-3)', flexWrap: 'wrap' }}>
-                            <button type="submit" className="btn btn-primary" style={{ flex: '1 1 120px' }}>
-                                {editingId ? 'Update' : 'Create'}
+                            <button type="submit" className="btn btn-primary" style={{ flex: '1 1 120px' }} disabled={isSubmitting}>
+                                {isSubmitting ? 'Saving...' : (editingId ? 'Update' : 'Create')}
                             </button>
-                            <button type="button" onClick={resetForm} className="btn btn-ghost" style={{ flex: '1 1 100px' }}>
+                            <button type="button" onClick={resetForm} className="btn btn-ghost" style={{ flex: '1 1 100px' }} disabled={isSubmitting}>
                                 Cancel
                             </button>
                         </div>
